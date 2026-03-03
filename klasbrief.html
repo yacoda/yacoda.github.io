@@ -967,16 +967,16 @@ function renderPageToCanvas(scale) {
   return canvas;
 }
 
-/* ── Exporteer naar afbeelding (PNG) ── */
+/* ── Exporteer naar afbeelding (JPG) ── */
 function exportImage() {
   const canvas = renderPageToCanvas(2);
   canvas.toBlob(function(blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = document.getElementById('filename-input').value + '.png';
+    a.href = url; a.download = document.getElementById('filename-input').value + '.jpg';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 'image/png');
+  }, 'image/jpeg', 0.95);
 }
 
 /* ── Exporteer naar PDF (JPEG-in-PDF + invisible text layer) ── */
