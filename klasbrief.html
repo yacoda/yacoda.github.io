@@ -332,6 +332,14 @@ const EDGE_MARGIN = 10; // px from edge to trigger resize/drag
 /* ══════════════════════════════════════
    Edge detection for image blocks
    ══════════════════════════════════════ */
+function findImageBlockAt(x, y) {
+  var blocks = page.querySelectorAll('.block.image-block');
+  for (var i = 0; i < blocks.length; i++) {
+    var r = blocks[i].getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return blocks[i];
+  }
+  return null;
+}
 function getEdgeZone(block, clientX, clientY) {
   const rect = block.getBoundingClientRect();
   const x = clientX - rect.left;
@@ -523,11 +531,7 @@ document.addEventListener('mousedown', function(e) {
 
   // Non-expert: click through text blocks to reach images underneath
   if (block && !isExpertMode() && !block.classList.contains('image-block')) {
-    var underneath = document.elementsFromPoint(e.clientX, e.clientY);
-    var imgBlock = null;
-    for (var i = 0; i < underneath.length; i++) {
-      if (underneath[i].classList.contains('image-block')) { imgBlock = underneath[i]; break; }
-    }
+    var imgBlock = findImageBlockAt(e.clientX, e.clientY);
     if (imgBlock) { block = imgBlock; e.preventDefault(); }
   }
 
@@ -578,21 +582,13 @@ document.addEventListener('mousemove', function(e) {
     if (!hoverBlock && !isExpertMode()) {
       var textOver = e.target.closest('.block:not(.image-block)');
       if (textOver) {
-        var hoverEls = document.elementsFromPoint(e.clientX, e.clientY);
-        for (var hi = 0; hi < hoverEls.length; hi++) {
-          if (hoverEls[hi].classList.contains('image-block')) { hoverBlock = hoverEls[hi]; break; }
-        }
-        if (hoverBlock) {
-          // Show drag/resize cursor on the text block the user actually sees
-          var contentEl = textOver.querySelector('.content');
-          if (contentEl) {
-            var edges = getEdgeZone(hoverBlock, e.clientX, e.clientY);
-            contentEl.style.cursor = edgeCursor(edges) || 'move';
-          }
-        } else {
-          // No image underneath — reset to text cursor
-          var contentEl2 = textOver.querySelector('.content');
-          if (contentEl2) contentEl2.style.cursor = 'text';
+        hoverBlock = findImageBlockAt(e.clientX, e.clientY);
+        var contentEl = textOver.querySelector('.content');
+        if (hoverBlock && contentEl) {
+          var edges = getEdgeZone(hoverBlock, e.clientX, e.clientY);
+          contentEl.style.cursor = edgeCursor(edges) || 'move';
+        } else if (contentEl) {
+          contentEl.style.cursor = 'text';
         }
       }
     }
