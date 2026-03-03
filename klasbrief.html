@@ -540,11 +540,11 @@ document.addEventListener('mousedown', function(e) {
       }
     }
 
-    // Drag to move (expert only for text blocks, always for images)
+    // Drag to move (always for images, edge-drag for text blocks)
     const content = e.target.closest('.content');
     const isImage = block.classList.contains('image-block');
-    // In expert mode, clicking near edge of any block starts a drag (even over content)
-    const nearEdge = isExpertMode() && !isImage && getEdgeZone(block, e.clientX, e.clientY);
+    // Clicking near edge of any block starts a drag (even over content)
+    const nearEdge = !isImage && getEdgeZone(block, e.clientX, e.clientY);
     if (nearEdge || (!content && (isImage || isExpertMode()))) {
       const rect = block.getBoundingClientRect();
       dragState = {
@@ -568,8 +568,8 @@ document.addEventListener('mousemove', function(e) {
       const cur = edgeCursor(edges);
       hoverBlock.style.cursor = cur || 'move';
     }
-    // In expert mode, show move cursor near edges of text/title blocks
-    if (isExpertMode()) {
+    // Show move cursor near edges of text/title blocks
+    {
       const textBlock = e.target.closest('.block:not(.image-block)');
       if (textBlock) {
         const nearEdge = getEdgeZone(textBlock, e.clientX, e.clientY);
