@@ -75,6 +75,7 @@ body { font-family: Arial, Helvetica, sans-serif; background: #e0e0e0; }
 }
 body.expert-mode .block { cursor: move; }
 .block.image-block { cursor: move; }
+.block.img-under, .block.img-under * { cursor: var(--img-cursor, move) !important; }
 body.expert-mode .block:hover, body.expert-mode .block.selected { border-color: #0078d4; }
 .block.image-block:hover, .block.image-block.selected { border-color: #0078d4; }
 .block.bordered { border: 2px solid #000; }
@@ -332,6 +333,14 @@ const EDGE_MARGIN = 10; // px from edge to trigger resize/drag
 /* ══════════════════════════════════════
    Edge detection for image blocks
    ══════════════════════════════════════ */
+function findImageBlockAt(x, y) {
+  var blocks = page.querySelectorAll('.block.image-block');
+  for (var i = 0; i < blocks.length; i++) {
+    var r = blocks[i].getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return blocks[i];
+  }
+  return null;
+}
 function getEdgeZone(block, clientX, clientY) {
   const rect = block.getBoundingClientRect();
   const x = clientX - rect.left;
@@ -519,7 +528,18 @@ document.addEventListener('mousedown', function(e) {
     return;
   }
 
-  const block = e.target.closest('.block');
+  var block = e.target.closest('.block');
+
+  // Click through text blocks to reach images underneath
+  // Non-expert: always prefer image; Expert: prefer image unless near text block edge
+  if (block && !block.classList.contains('image-block')) {
+    var imgBlock = findImageBlockAt(e.clientX, e.clientY);
+    if (imgBlock) {
+      var atTextEdge = isExpertMode() && getEdgeZone(block, e.clientX, e.clientY);
+      if (!atTextEdge) { block = imgBlock; e.preventDefault(); }
+    }
+  }
+
   if (block) {
     selectBlock(block);
 
@@ -541,7 +561,7 @@ document.addEventListener('mousedown', function(e) {
     }
 
     // Drag to move (expert only for text blocks, always for images)
-    const content = e.target.closest('.content');
+    const content = block.contains(e.target) && e.target.closest('.content');
     const isImage = block.classList.contains('image-block');
     // In expert mode, clicking near edge of any block starts a drag (even over content)
     const nearEdge = isExpertMode() && !isImage && getEdgeZone(block, e.clientX, e.clientY);
@@ -562,16 +582,39 @@ document.addEventListener('mousedown', function(e) {
 document.addEventListener('mousemove', function(e) {
   /* ── Cursor hints on hover ── */
   if (!dragState && !resizeState) {
-    const hoverBlock = e.target.closest('.block.image-block');
+    var hoverBlock = e.target.closest('.block.image-block');
+    // Detect image blocks underneath text blocks for cursor hints
+    if (!hoverBlock) {
+      var textOver = e.target.closest('.block:not(.image-block)');
+      if (textOver) {
+        var imgBelow = findImageBlockAt(e.clientX, e.clientY);
+        var atTextEdge = isExpertMode() && getEdgeZone(textOver, e.clientX, e.clientY);
+        if (imgBelow && !atTextEdge) {
+          hoverBlock = imgBelow;
+          var edges = getEdgeZone(imgBelow, e.clientX, e.clientY);
+          textOver.style.setProperty('--img-cursor', edgeCursor(edges) || 'move');
+          textOver.classList.add('img-under');
+        } else {
+          textOver.classList.remove('img-under');
+        }
+      }
+    }
+    // Clean up cursor class from text blocks no longer hovered
+    var allImgUnder = page.querySelectorAll('.block.img-under');
+    for (var ti = 0; ti < allImgUnder.length; ti++) {
+      if (allImgUnder[ti] !== (e.target.closest('.block:not(.image-block)'))) {
+        allImgUnder[ti].classList.remove('img-under');
+      }
+    }
     if (hoverBlock) {
       const edges = getEdgeZone(hoverBlock, e.clientX, e.clientY);
       const cur = edgeCursor(edges);
       hoverBlock.style.cursor = cur || 'move';
     }
-    // In expert mode, show move cursor near edges of text/title blocks
+    // In expert mode, show move cursor near edges of text/title blocks (when no image underneath)
     if (isExpertMode()) {
       const textBlock = e.target.closest('.block:not(.image-block)');
-      if (textBlock) {
+      if (textBlock && !textBlock.classList.contains('img-under')) {
         const nearEdge = getEdgeZone(textBlock, e.clientX, e.clientY);
         const contentEl = textBlock.querySelector('.content');
         if (contentEl) contentEl.style.cursor = nearEdge ? 'move' : 'text';
@@ -967,16 +1010,16 @@ function renderPageToCanvas(scale) {
   return canvas;
 }
 
-/* ── Exporteer naar afbeelding (PNG) ── */
+/* ── Exporteer naar afbeelding (JPG) ── */
 function exportImage() {
   const canvas = renderPageToCanvas(2);
   canvas.toBlob(function(blob) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = document.getElementById('filename-input').value + '.png';
+    a.href = url; a.download = document.getElementById('filename-input').value + '.jpg';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 'image/png');
+  }, 'image/jpeg', 0.95);
 }
 
 /* ── Exporteer naar PDF (JPEG-in-PDF + invisible text layer) ── */
