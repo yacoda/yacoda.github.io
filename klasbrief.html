@@ -519,7 +519,18 @@ document.addEventListener('mousedown', function(e) {
     return;
   }
 
-  const block = e.target.closest('.block');
+  var block = e.target.closest('.block');
+
+  // Non-expert: click through text blocks to reach images underneath
+  if (block && !isExpertMode() && !block.classList.contains('image-block')) {
+    var underneath = document.elementsFromPoint(e.clientX, e.clientY);
+    var imgBlock = null;
+    for (var i = 0; i < underneath.length; i++) {
+      if (underneath[i].classList.contains('image-block')) { imgBlock = underneath[i]; break; }
+    }
+    if (imgBlock) { block = imgBlock; e.preventDefault(); }
+  }
+
   if (block) {
     selectBlock(block);
 
@@ -541,7 +552,7 @@ document.addEventListener('mousedown', function(e) {
     }
 
     // Drag to move (expert only for text blocks, always for images)
-    const content = e.target.closest('.content');
+    const content = block.contains(e.target) && e.target.closest('.content');
     const isImage = block.classList.contains('image-block');
     // In expert mode, clicking near edge of any block starts a drag (even over content)
     const nearEdge = isExpertMode() && !isImage && getEdgeZone(block, e.clientX, e.clientY);
