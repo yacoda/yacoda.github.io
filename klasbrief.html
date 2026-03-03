@@ -530,10 +530,14 @@ document.addEventListener('mousedown', function(e) {
 
   var block = e.target.closest('.block');
 
-  // Non-expert: click through text blocks to reach images underneath
-  if (block && !isExpertMode() && !block.classList.contains('image-block')) {
+  // Click through text blocks to reach images underneath
+  // Non-expert: always prefer image; Expert: prefer image unless near text block edge
+  if (block && !block.classList.contains('image-block')) {
     var imgBlock = findImageBlockAt(e.clientX, e.clientY);
-    if (imgBlock) { block = imgBlock; e.preventDefault(); }
+    if (imgBlock) {
+      var atTextEdge = isExpertMode() && getEdgeZone(block, e.clientX, e.clientY);
+      if (!atTextEdge) { block = imgBlock; e.preventDefault(); }
+    }
   }
 
   if (block) {
@@ -579,13 +583,15 @@ document.addEventListener('mousemove', function(e) {
   /* ── Cursor hints on hover ── */
   if (!dragState && !resizeState) {
     var hoverBlock = e.target.closest('.block.image-block');
-    // Non-expert: detect image blocks underneath text blocks for cursor hints
-    if (!hoverBlock && !isExpertMode()) {
+    // Detect image blocks underneath text blocks for cursor hints
+    if (!hoverBlock) {
       var textOver = e.target.closest('.block:not(.image-block)');
       if (textOver) {
-        hoverBlock = findImageBlockAt(e.clientX, e.clientY);
-        if (hoverBlock) {
-          var edges = getEdgeZone(hoverBlock, e.clientX, e.clientY);
+        var imgBelow = findImageBlockAt(e.clientX, e.clientY);
+        var atTextEdge = isExpertMode() && getEdgeZone(textOver, e.clientX, e.clientY);
+        if (imgBelow && !atTextEdge) {
+          hoverBlock = imgBelow;
+          var edges = getEdgeZone(imgBelow, e.clientX, e.clientY);
           textOver.style.setProperty('--img-cursor', edgeCursor(edges) || 'move');
           textOver.classList.add('img-under');
         } else {
@@ -594,12 +600,10 @@ document.addEventListener('mousemove', function(e) {
       }
     }
     // Clean up cursor class from text blocks no longer hovered
-    if (!isExpertMode()) {
-      var allText = page.querySelectorAll('.block.img-under');
-      for (var ti = 0; ti < allText.length; ti++) {
-        if (allText[ti] !== (e.target.closest('.block:not(.image-block)'))) {
-          allText[ti].classList.remove('img-under');
-        }
+    var allImgUnder = page.querySelectorAll('.block.img-under');
+    for (var ti = 0; ti < allImgUnder.length; ti++) {
+      if (allImgUnder[ti] !== (e.target.closest('.block:not(.image-block)'))) {
+        allImgUnder[ti].classList.remove('img-under');
       }
     }
     if (hoverBlock) {
@@ -607,10 +611,10 @@ document.addEventListener('mousemove', function(e) {
       const cur = edgeCursor(edges);
       hoverBlock.style.cursor = cur || 'move';
     }
-    // In expert mode, show move cursor near edges of text/title blocks
+    // In expert mode, show move cursor near edges of text/title blocks (when no image underneath)
     if (isExpertMode()) {
       const textBlock = e.target.closest('.block:not(.image-block)');
-      if (textBlock) {
+      if (textBlock && !textBlock.classList.contains('img-under')) {
         const nearEdge = getEdgeZone(textBlock, e.clientX, e.clientY);
         const contentEl = textBlock.querySelector('.content');
         if (contentEl) contentEl.style.cursor = nearEdge ? 'move' : 'text';
