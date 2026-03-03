@@ -573,7 +573,29 @@ document.addEventListener('mousedown', function(e) {
 document.addEventListener('mousemove', function(e) {
   /* ── Cursor hints on hover ── */
   if (!dragState && !resizeState) {
-    const hoverBlock = e.target.closest('.block.image-block');
+    var hoverBlock = e.target.closest('.block.image-block');
+    // Non-expert: detect image blocks underneath text blocks for cursor hints
+    if (!hoverBlock && !isExpertMode()) {
+      var textOver = e.target.closest('.block:not(.image-block)');
+      if (textOver) {
+        var hoverEls = document.elementsFromPoint(e.clientX, e.clientY);
+        for (var hi = 0; hi < hoverEls.length; hi++) {
+          if (hoverEls[hi].classList.contains('image-block')) { hoverBlock = hoverEls[hi]; break; }
+        }
+        if (hoverBlock) {
+          // Show drag/resize cursor on the text block the user actually sees
+          var contentEl = textOver.querySelector('.content');
+          if (contentEl) {
+            var edges = getEdgeZone(hoverBlock, e.clientX, e.clientY);
+            contentEl.style.cursor = edgeCursor(edges) || 'move';
+          }
+        } else {
+          // No image underneath — reset to text cursor
+          var contentEl2 = textOver.querySelector('.content');
+          if (contentEl2) contentEl2.style.cursor = 'text';
+        }
+      }
+    }
     if (hoverBlock) {
       const edges = getEdgeZone(hoverBlock, e.clientX, e.clientY);
       const cur = edgeCursor(edges);
